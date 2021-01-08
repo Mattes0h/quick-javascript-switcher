@@ -1,3 +1,11 @@
+/*
+ * Quick Javascript Switcher Chrome Extension
+ * http://github.com/maximelebreton/quick-javascript-switcher/
+ *
+ * GPL License. by Maxime Le Breton [www.maximelebreton.com]
+ * Gear icon by Yusuke Kamiyamane
+ */
+
 var contextMenuId = null;
 
 var chromeContentSettings = chrome.contentSettings;
@@ -5,6 +13,8 @@ var chromeContentSettings = chrome.contentSettings;
 var chromeStorageMethod;
 
 var isIncognitoWindows;
+
+var alreadyRun = false
 
 var cache = {
 
@@ -15,6 +25,118 @@ var cache = {
   },
 
   rules: []
+
+}
+var loading
+var timer
+
+var alreadyNotifiedByClick = false
+
+
+chrome.contextMenus.removeAll(function() {
+
+  let endDate = new Date(2019, 0, 24, 23, 59, 0, 0)
+  let today = new Date()
+  
+  var oneDay = 24*60*60*1000; // hours*minutes*seconds*milliseconds
+  let remainingDays = Math.round((endDate.getTime() - today.getTime())/(oneDay));
+
+  if (remainingDays >= 0) {
+    var contextMenuId2 = chrome.contextMenus.create({
+      "title": `⏰ ${remainingDays} days to support next release of QJS on KickStarter! 🡆`,
+      "type": "normal",
+      "contexts": ["browser_action"],
+      "onclick": openKickStarter()
+    });
+  }
+  var contextMenuIdSeparator = chrome.contextMenus.create({
+    "type": "separator",
+    "contexts": ["browser_action"]
+  });
+
+  var contextMenuId3 = chrome.contextMenus.create({
+    "id": "toggleJavascript",
+    "title": "Toggle JavaScript",
+    "type": "normal",
+    "contexts": ["page"]
+  });
+
+  var contextMenuId = chrome.contextMenus.create({
+    "id": "goToJavaScriptSettings",
+    "title": "Go to JavaScript settings",
+    "type": "normal",
+    "contexts": ["browser_action"]
+  });
+
+  
+
+})
+
+
+function setKickStarterBadge(delay = 0, notifiedByClick = false) {
+  
+  let endDate = new Date(2019, 0, 24, 23, 59, 0, 0)
+  let today = new Date()
+  
+  var oneDay = 24*60*60*1000; // hours*minutes*seconds*milliseconds
+  let remainingDays = Math.round((endDate.getTime() - today.getTime())/(oneDay));
+
+//new Date(license.createdTime).toLocaleDateString("en", {year: "numeric", month: "long", day: "numeric"})
+  //if (!alreadyRun) {
+    
+    clearTimeout(timer);
+    
+
+    if (!alreadyNotifiedByClick && remainingDays >= 0) {
+
+      timer = setTimeout(() => {
+
+        
+
+        clearInterval(loading)
+        alreadyRun = true
+        let space = 6
+        let sentence = `   ...⏰    ${remainingDays} days to support the next release on kickstarter!...   ❤️    `
+
+
+        let spinner = {
+          interval: 150,
+          frames: sentence.split('')
+        }
+
+        let i = -1;
+
+          loading = setInterval(() => {
+          
+            const frames = spinner.frames;
+
+        
+            i = ++i
+
+            let letter1 = i > 0 && i < frames.length - 1 ? frames[i % frames.length] : ''
+            let letter2 = i > 1 && i < frames.length - 2 ? frames[(i + 1) % frames.length] : ''
+            let letter3 = i > 2 && i < frames.length - 3 ? frames[(i + 2) % frames.length] : ''
+            let letter4 = i > 3 && i < frames.length - 4 ? frames[(i + 3) % frames.length] : ''
+            let letter5 = i > 4 && i < frames.length - 5 ? frames[(i + 4) % frames.length] : ''
+            let letter6 = i > 5 && i < frames.length - 6 ? frames[(i + 5) % frames.length] : ''
+            chrome.browserAction.setBadgeText({
+              text: letter1 + letter2 + letter3 + letter4 + letter5 + letter6
+            })
+            
+            if (i == frames.length - 1) {
+              clearInterval(loading)
+              alreadyRun = false
+            }
+
+          }, spinner.interval);
+
+        }, delay);
+
+        alreadyNotifiedByClick = notifiedByClick
+
+    }
+
+  //}
 
 }
 
@@ -58,7 +180,9 @@ if (chromeContentSettings) {
 
   chrome.commands.onCommand.addListener(function (command) {
     if (command == "toggle-qjs") {
+      
       changeSettings();
+      
     }
   });
 
@@ -66,9 +190,12 @@ if (chromeContentSettings) {
 
     for (var index in callback) {
       if (callback.hasOwnProperty(index)) {
-        //console.log(callback[index]);
-        cache[index] = JSON.parse(callback[index].newValue);
-        //console.log(cache);
+        console.log(callback[index]);
+        if (index === 'version') {
+          cache[index] = callback[index].newValue;
+        } else {
+            cache[index] = JSON.parse(callback[index].newValue);
+        }
       }
     }
 
@@ -86,7 +213,7 @@ function updateIconAndMenu(setting) {
     path: "icons/icon-" + setting + ".png"
   });
   
-  if (cache.options.showContextMenu && contextMenuId) {
+  
     var text = '';
     var visible = true;
     if (setting === 'allow') {
@@ -94,17 +221,17 @@ function updateIconAndMenu(setting) {
     } else if (setting === 'block') {
       text = 'Allow';
     }
-
-    if (setting === 'inactive') {
+     if (setting === 'inactive') {
       visible = false;
     }
-
-    chrome.contextMenus.update(contextMenuId, {
+     chrome.contextMenus.update("toggleJavascript", {
       "title": text + ' JavaScript',
       "visible": visible,
     });
-  }
+  
 }
+
+
 
 function getSettings() {
 
@@ -122,12 +249,51 @@ function getSettings() {
       tabId = tab.id;
       tabIndex = tab.index;
 
+      /*var regex = /(.+):\/+([^\/]+)\/(.*)/gm;
+      var getDomain = /[^.]*.[^.]*$/gm;
+
+      var urlGroup = regex.exec(url);
+      var primaryPattern = urlGroup[0];
+      var scheme = urlGroup[1];
+      var host = urlGroup[2];
+      var path = urlGroup[3];
+
+      var domain = getDomain.exec(host);
+      
+      var subdomain = host.replace(domain, '');
+
+      
+      chrome.contextMenus.update(contextMenuId2, {
+        "title": "Block subdomain (" + host + "/*)",
+        "type": "normal",
+        "contexts": ["all"],
+        "onclick": openJsPanel()
+      });
+      chrome.contextMenus.update(contextMenuId3, {
+        "title": "Block domain (*." + domain + "/*) [✓]",
+        "type": "normal",
+        "contexts": ["all"],
+        "onclick": openJsPanel()
+      });
+
+      chrome.contextMenus.update(contextMenuId4, {
+        "title": "Block url ",
+        "type": "normal",
+        "contexts": ["all"],
+        "onclick": openJsPanel()
+      });*/
+
       //console.info("Current tab settings : "+url);
       chromeContentSettings.javascript.get({
           'primaryUrl': url,
           'incognito': incognito
         },
         function (details) {
+
+          if (details.setting == 'block') {
+            setKickStarterBadge(1000, true)
+          }
+
           //console.info("Current tab settings : "+url);
           url ? matchForbiddenOrigin = url.match(forbiddenOrigin, '') : matchForbiddenOrigin = true;
           matchForbiddenOrigin ? updateIconAndMenu("inactive") : updateIconAndMenu(details.setting);
@@ -136,7 +302,11 @@ function getSettings() {
   });
 }
 
+
+
 function changeSettings() {
+
+  setKickStarterBadge(1000, true)
 
   if (!matchForbiddenOrigin) {
     chromeContentSettings.javascript.get({
@@ -158,6 +328,8 @@ function changeSettings() {
           }, function () {
 
             updateIconAndMenu(newSetting);
+
+            
             
             /**
              * hack to fix chrome issue in incognito mode:
@@ -363,8 +535,8 @@ function onInstall() {
 function onUpdate() {
   console.log('update');
   // if old rules, save with the new method
-  old_rules = JSON.parse(window.localStorage.qjs_rules);
-  if (!cache.rules.length && old_rules.length) {
+  old_rules = window.localStorage.qjs_rules ? JSON.parse(window.localStorage.qjs_rules) : null;
+  if (!cache.rules.length && old_rules && old_rules.length) {
     importRules(old_rules);
   }
 
@@ -380,22 +552,52 @@ function getVersion() {
   return details.version;
 }
 
+
+  chrome.contextMenus.onClicked.addListener(function(info, tab) {
+
+    if (info.menuItemId == "toggleJavascript") {
+      changeSettings()
+    }
+    if (info.menuItemId == "goToJavaScriptSettings") {
+      openJsPanel()
+    }
+
+  })
+
+
 function toggleContextMenu() {
   if (cache.options.showContextMenu && !contextMenuId) {
-
-    contextMenuId = chrome.contextMenus.create({
-      "title": "Toggle JavaScript",
+    
+/* 
+        
+    contextMenuId2 = chrome.contextMenus.create({
+      "title": "Block subdomain",
       "type": "normal",
-      "contexts": ["page"],
-      "onclick": changeSettings
+      "contexts": ["all"],
+      "onclick": openJsPanel()
     });
+    contextMenuId3 = chrome.contextMenus.create({
+      "title": "Block domain",
+      "type": "normal",
+      "contexts": ["all"],
+      "onclick": openJsPanel()
+    });
+
+    contextMenuId4 = chrome.contextMenus.create({
+      "title": "Block path",
+      "type": "normal",
+      "contexts": ["all"],
+      "onclick": openJsPanel()
+    }); */
+
+
+   
 
   }
 
-  if (!cache.options.showContextMenu && contextMenuId) {
+  if (!cache.options.showContextMenu) {
 
-    chrome.contextMenus.remove(contextMenuId);
-    contextMenuId = null;
+    chrome.contextMenus.remove("goToJavaScriptSettings");
 
   }
 
@@ -414,7 +616,20 @@ function openJsPanel() {
   };
 }
 
+function openKickStarter() {
+  return function (info, tab) {
+    chrome.tabs.create({
+      "url": "https://www.kickstarter.com/projects/376707762/337761327",
+      "selected": true
+    });
+  };
+}
+
 function initIncognitoClear() {
+
+
+
+  
 
   chrome.windows.onRemoved.addListener(function (windowId) {
 
@@ -440,21 +655,31 @@ function initIncognitoClear() {
   });
 }
 
+chrome.runtime.onStartup.addListener(function () {
+  setKickStarterBadge()
+})
+chrome.runtime.onInstalled.addListener(function () {
+  setKickStarterBadge()
+})
+
+
+
+
+
+
 function init() {
+  chrome.browserAction.setBadgeText({
+    text: ''
+  })
 
   getStoragePrefs(function () {
 
     checkVersion();
     toggleContextMenu();
-	
-	var buttonContextMenuId = chrome.contextMenus.create({
-      "title": "Go to JavaScript settings",
-      "type": "normal",
-      "contexts": ["browser_action"],
-      "onclick": openJsPanel()
-    });
 
   });
 
   initIncognitoClear();
+
+
 }
